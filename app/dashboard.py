@@ -181,7 +181,7 @@ app.layout = html.Div([
                         dbc.Col([
                             html.Div(className="glass-card", children=[
                                 html.H4("Perspectives Industrielles & Limites", style={"color": "var(--accent-blue)"}, className="mb-3"),
-                                dcc.Markdown(\"\"\"
+                                dcc.Markdown("""
                                 **Biais et Limites du Modèle :**
                                 - **Biais de Température :** Le modèle peut être sensible aux pics de chaleur soudains non représentés dans le train set.
                                 - **Dépendance Cyclique :** La prédiction est optimale pour des décharges standardisées.
@@ -190,7 +190,7 @@ app.layout = html.Div([
                                 1. **Maintenance Prédictive :** Anticiper le remplacement des cellules avant la défaillance critique (EoL).
                                 2. **Optimisation BMS :** Ajuster les courants de charge en temps réel pour maximiser la longévité.
                                 3. **Seconde Vie :** Évaluer rapidement le potentiel de réutilisation des batteries usagées.
-                                \"\"\", className=\"text-muted\")
+                                """, className="text-muted")
                             ])
                         ], width=12)
                     ])
@@ -240,6 +240,7 @@ def update_graphs(selected_battery, window_size):
         logging.warning("Aucune fenêtre créée (cycle trop court?)")
         return [go.Figure()] * 6
         
+    # Optimisation : Batch prediction avec batch_size=32 pour économiser la RAM
     y_pred = model.predict(X_windows, batch_size=32, verbose=0).flatten()
     logging.info(f"Prédictions effectuées: {len(y_pred)}")
     

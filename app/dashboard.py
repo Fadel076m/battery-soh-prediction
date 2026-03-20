@@ -201,16 +201,28 @@ app.layout = html.Div([
     [Input('battery-select', 'value'),
      Input('window-slider', 'value')]
 )
-    # 2. Prédiction (Fenêtrage)
+def update_graphs(selected_battery, window_size):
+    # 1. Préparation des données
     logging.info(f"Mise à jour des graphiques pour la batterie: {selected_battery}, window_size: {window_size}")
+    
+    if selected_battery is None:
+        logging.warning("Pas de batterie sélectionnée")
+        return [go.Figure()] * 6
+        
+    batt_df = df_clean[df_clean['battery_id'] == selected_battery].sort_values('cycle_number')
     logging.info(f"Lignes trouvées pour cette batterie: {len(batt_df)}")
     
     if len(batt_df) == 0:
         logging.warning(f"Aucune donnée trouvée pour la batterie {selected_battery}")
         return [go.Figure()] * 6
 
+    features = ['Voltage_measured', 'Current_measured', 'Temperature_measured', 'SoC', 'cycle_number']
+    target = 'SoH'
+    
+    # 2. Prédiction (Fenêtrage)
     batt_scaled = batt_df.copy()
     batt_scaled[features] = scaler.transform(batt_df[features])
+    
     X_windows, y_true = build_sliding_windows(batt_scaled, window_size, features, target)
     logging.info(f"Nombre de fenêtres créées: {len(X_windows)}")
     

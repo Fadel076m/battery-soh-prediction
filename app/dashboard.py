@@ -201,21 +201,25 @@ app.layout = html.Div([
     [Input('battery-select', 'value'),
      Input('window-slider', 'value')]
 )
-def update_graphs(selected_battery, window_size):
-    # 1. Préparation des données
-    batt_df = df_clean[df_clean['battery_id'] == selected_battery].sort_values('cycle_number')
-    features = ['Voltage_measured', 'Current_measured', 'Temperature_measured', 'SoC', 'cycle_number']
-    target = 'SoH'
-    
     # 2. Prédiction (Fenêtrage)
+    logging.info(f"Mise à jour des graphiques pour la batterie: {selected_battery}, window_size: {window_size}")
+    logging.info(f"Lignes trouvées pour cette batterie: {len(batt_df)}")
+    
+    if len(batt_df) == 0:
+        logging.warning(f"Aucune donnée trouvée pour la batterie {selected_battery}")
+        return [go.Figure()] * 6
+
     batt_scaled = batt_df.copy()
     batt_scaled[features] = scaler.transform(batt_df[features])
     X_windows, y_true = build_sliding_windows(batt_scaled, window_size, features, target)
+    logging.info(f"Nombre de fenêtres créées: {len(X_windows)}")
     
     if len(X_windows) == 0:
+        logging.warning("Aucune fenêtre créée (cycle trop court?)")
         return [go.Figure()] * 6
         
     y_pred = model.predict(X_windows, verbose=0).flatten()
+    logging.info(f"Prédictions effectuées: {len(y_pred)}")
     
     # 3. Génération des Figures
     fig_trend = go.Figure()

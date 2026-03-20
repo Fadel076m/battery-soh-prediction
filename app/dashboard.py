@@ -102,7 +102,7 @@ app.layout = html.Div([
                     dbc.Row([
                         dbc.Col(make_kpi_card("SOH MOYEN", f"{round(df_clean['SoH'].mean(), 1)}", "%", "heart-pulse"), width=3),
                         dbc.Col(make_kpi_card("CYCLES TOTAL", len(df_clean), "pts", "activity"), width=3),
-                        dbc.Col(make_kpi_card("TEMP MAX", f"{df_clean['Temperature_measured'].max()}", "°C", "thermometer-high"), width=3),
+                        dbc.Col(make_kpi_card("TEMP MAX", f"{round(df_clean['Temperature_measured'].max(), 1)}", "°C", "thermometer-high"), width=3),
                         dbc.Col(make_kpi_card("PRÉCISION", "98.2", "%", "check2-circle"), width=3),
                     ], className="mb-4"),
                     dbc.Row([

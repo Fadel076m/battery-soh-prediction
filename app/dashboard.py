@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+import gc
 import pandas as pd
 import numpy as np
 import joblib
@@ -46,13 +47,18 @@ SCALER_PATH = os.path.join(BASE_DIR, 'models', 'scaler.pkl')
 logging.info(f"Chargement des données depuis : {DATA_PATH}")
 df_raw = load_data(DATA_PATH)
 df_clean = clean_and_sort_data(df_raw)
-logging.info(f"Données chargées : {len(df_clean)} lignes")
+
+# Optimisation mémoire: conversion en float32
+numeric_cols = df_clean.select_dtypes(include=['float64']).columns
+df_clean[numeric_cols] = df_clean[numeric_cols].astype('float32')
+logging.info(f"Données chargées et optimisées (float32) : {len(df_clean)} lignes")
 
 logging.info(f"Chargement du scaler : {SCALER_PATH}")
 scaler = joblib.load(SCALER_PATH)
 
 logging.info(f"Chargement du modèle : {MODEL_PATH}")
 model = tf.keras.models.load_model(MODEL_PATH)
+gc.collect() # Nettoyage après chargement du modèle
 
 # --- REUSABLE COMPONENTS ---
 def make_kpi_card(title, value, unit, icon):
@@ -231,35 +237,42 @@ def update_graphs(selected_battery, window_size):
     
     # 2. Prédiction (Fenêtrage)
     batt_scaled = batt_df.copy()
-    batt_scaled[features] = scaler.transform(batt_df[features])
+    # On s'assure que le scaler reçoit du float32 pour économiser la RAM
+    batt_scaled[features] = scaler.transform(batt_df[features]).astype('float32')
     
     X_windows, y_true = build_sliding_windows(batt_scaled, window_size, features, target)
-    logging.info(f"Nombre de fenêtres créées: {len(X_windows)}")
+    logging.info(f"Nombre total de fenêtres potentielles: {len(X_windows)}")
     
     if len(X_windows) == 0:
         logging.warning("Aucune fenêtre créée (cycle trop court?)")
         return [go.Figure()] * 6
         
-    # Optimisation : Batch prediction avec batch_size=32 pour économiser la RAM
-    y_pred = model.predict(X_windows, batch_size=32, verbose=0).flatten()
-    logging.info(f"Prédictions effectuées: {len(y_pred)}")
-    
-    # 3. Génération des Figures (Sous-échantillonnage pour la fluidité si trop de points)
-    if len(y_true) > 500:
-        indices = np.linspace(0, len(y_true) - 1, 500, dtype=int)
+    # Optimisation cruciale : Limiter à 200 prédictions pour éviter le timeout/OOM sur Render Free
+    if len(X_windows) > 200:
+        logging.info("Sous-échantillonnage des fenêtres à 200 pour la performance")
+        indices = np.linspace(0, len(X_windows) - 1, 200, dtype=int)
+        X_windows_pred = X_windows[indices]
         y_true_plot = y_true[indices]
-        y_pred_plot = y_pred[indices]
     else:
+        X_windows_pred = X_windows
         y_true_plot = y_true
-        y_pred_plot = y_pred
 
+    # Prédiction par lots
+    y_pred_plot = model.predict(X_windows_pred, batch_size=32, verbose=0).flatten()
+    logging.info(f"Prédictions effectuées: {len(y_pred_plot)}")
+    
+    gc.collect() # Nettoyage après prédiction
+
+    # 3. Génération des Figures
     fig_trend = go.Figure()
     fig_trend.add_trace(go.Scatter(y=y_true_plot, name="SOH Réel", line=dict(color='#00ff88', width=3)))
     fig_trend.add_trace(go.Scatter(y=y_pred_plot, name="SOH LSTM", line=dict(color='#00d2ff', width=2, dash='dot')))
     fig_trend.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
     
-    fig_err = plot_error_distribution(y_true, y_pred)
-    fig_res = plot_residual_analysis(y_true, y_pred)
+    # Pour les graphes de distribution d'erreurs, on utilise les 200 points prédits
+    fig_err = plot_error_distribution(y_true_plot, y_pred_plot)
+    fig_res = plot_residual_analysis(y_true_plot, y_pred_plot)
+    
     fig_heat = plot_cycle_heatmap(df_clean, selected_battery)
     fig_feat = plot_feature_influence(df_clean)
     fig_joint = plot_joint_influence(df_clean)

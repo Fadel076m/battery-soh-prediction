@@ -240,13 +240,21 @@ def update_graphs(selected_battery, window_size):
         logging.warning("Aucune fenêtre créée (cycle trop court?)")
         return [go.Figure()] * 6
         
-    y_pred = model.predict(X_windows, verbose=0).flatten()
+    y_pred = model.predict(X_windows, batch_size=32, verbose=0).flatten()
     logging.info(f"Prédictions effectuées: {len(y_pred)}")
     
-    # 3. Génération des Figures
+    # 3. Génération des Figures (Sous-échantillonnage pour la fluidité si trop de points)
+    if len(y_true) > 500:
+        indices = np.linspace(0, len(y_true) - 1, 500, dtype=int)
+        y_true_plot = y_true[indices]
+        y_pred_plot = y_pred[indices]
+    else:
+        y_true_plot = y_true
+        y_pred_plot = y_pred
+
     fig_trend = go.Figure()
-    fig_trend.add_trace(go.Scatter(y=y_true, name="SOH Réel", line=dict(color='#00ff88', width=3)))
-    fig_trend.add_trace(go.Scatter(y=y_pred, name="SOH LSTM", line=dict(color='#00d2ff', width=2, dash='dot')))
+    fig_trend.add_trace(go.Scatter(y=y_true_plot, name="SOH Réel", line=dict(color='#00ff88', width=3)))
+    fig_trend.add_trace(go.Scatter(y=y_pred_plot, name="SOH LSTM", line=dict(color='#00d2ff', width=2, dash='dot')))
     fig_trend.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
     
     fig_err = plot_error_distribution(y_true, y_pred)

@@ -11,6 +11,9 @@ from dash import dcc, html, Input, Output, State
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 
+# Configuration du logging pour Render
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 # Ajout du chemin src pour importer nos modules
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src'))
 
@@ -28,7 +31,7 @@ server = Flask(__name__)
 app = dash.Dash(
     __name__, 
     server=server, 
-    external_stylesheets=[dbc.themes.DARKLY, dbc.icons.BOOTSTRAP],
+    external_stylesheets=[dbc.themes.DARKLY, dbc.themes.BOOTSTRAP, dbc.icons.BOOTSTRAP],
     update_title='Chargement...',
     meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1"}]
 )
@@ -40,9 +43,15 @@ DATA_PATH = os.path.join(BASE_DIR, 'data', 'battery_dataset.csv')
 MODEL_PATH = os.path.join(BASE_DIR, 'models', 'trained_model.keras')
 SCALER_PATH = os.path.join(BASE_DIR, 'models', 'scaler.pkl')
 
+logging.info(f"Chargement des données depuis : {DATA_PATH}")
 df_raw = load_data(DATA_PATH)
 df_clean = clean_and_sort_data(df_raw)
+logging.info(f"Données chargées : {len(df_clean)} lignes")
+
+logging.info(f"Chargement du scaler : {SCALER_PATH}")
 scaler = joblib.load(SCALER_PATH)
+
+logging.info(f"Chargement du modèle : {MODEL_PATH}")
 model = tf.keras.models.load_model(MODEL_PATH)
 
 # --- REUSABLE COMPONENTS ---
@@ -172,7 +181,7 @@ app.layout = html.Div([
                         dbc.Col([
                             html.Div(className="glass-card", children=[
                                 html.H4("Perspectives Industrielles & Limites", style={"color": "var(--accent-blue)"}, className="mb-3"),
-                                dcc.Markdown("""
+                                dcc.Markdown(\"\"\"
                                 **Biais et Limites du Modèle :**
                                 - **Biais de Température :** Le modèle peut être sensible aux pics de chaleur soudains non représentés dans le train set.
                                 - **Dépendance Cyclique :** La prédiction est optimale pour des décharges standardisées.
@@ -181,7 +190,7 @@ app.layout = html.Div([
                                 1. **Maintenance Prédictive :** Anticiper le remplacement des cellules avant la défaillance critique (EoL).
                                 2. **Optimisation BMS :** Ajuster les courants de charge en temps réel pour maximiser la longévité.
                                 3. **Seconde Vie :** Évaluer rapidement le potentiel de réutilisation des batteries usagées.
-                                """, className="text-muted")
+                                \"\"\", className=\"text-muted\")
                             ])
                         ], width=12)
                     ])
@@ -189,7 +198,7 @@ app.layout = html.Div([
             ])
         ], id="tabs", active_tab="tab-overview")
     ])
-])
+], style={"backgroundColor": "#0b0c10", "minHeight": "100vh"})
 
 # --- CALLBACKS ---
 @app.callback(
@@ -249,4 +258,5 @@ def update_graphs(selected_battery, window_size):
     return fig_trend, fig_err, fig_res, fig_heat, fig_feat, fig_joint
 
 if __name__ == '__main__':
-    app.run(debug=True, port=8050)
+    port = int(os.environ.get("PORT", 8050))
+    app.run(host='0.0.0.0', port=port, debug=False)

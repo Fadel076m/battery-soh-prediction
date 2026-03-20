@@ -1,0 +1,14 @@
+numpy
+pandas
+matplotlib
+seaborn
+scikit-learn
+tensorflow
+keras
+plotly
+flask
+dash
+dash-bootstrap-components
+gunicorn
+tqdm
+joblib

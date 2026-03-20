@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+.idea/
+.vscode/
+data_loader/__pycache__/
+src/__pycache__/
+app/assets/.DS_Store
+*.log
+.env
